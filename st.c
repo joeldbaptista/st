@@ -35,7 +35,7 @@
 #define ESC_ARG_SIZ   16
 #define STR_BUF_SIZ   ESC_BUF_SIZ
 #define STR_ARG_SIZ   ESC_ARG_SIZ
-#define HISTSIZE      2000
+#define HISTSIZE      10000
 
 /* macros */
 #define IS_SET(flag)		((term.mode & (flag)) != 0)
@@ -122,7 +122,8 @@ typedef struct {
 	Line *line;   /* screen */
 	Line *alt;    /* alternate screen */
 	Line hist[HISTSIZE]; /* history buffer */
-	int histi;    /* history index */
+	int histi;    /* history index (next write slot) */
+	int histf;    /* number of valid (filled) history lines, ≤ HISTSIZE */
 	int scr;      /* scroll back */
 	int *dirty;   /* dirtyness of lines */
 	TCursor c;    /* cursor */
@@ -1093,7 +1094,10 @@ kscrollup(const Arg* a)
 	if (n < 0)
 		n = term.row + n;
 
-	if (term.scr <= HISTSIZE-n) {
+	if (term.scr + n > term.histf)
+		n = term.histf - term.scr;
+
+	if (n > 0) {
 		term.scr += n;
 		selscroll(0, n);
 		tfulldirt();
@@ -1140,6 +1144,8 @@ tscrollup(int orig, int n, int copyhist)
 		temp = term.hist[term.histi];
 		term.hist[term.histi] = term.line[orig];
 		term.line[orig] = temp;
+		if (term.histf < HISTSIZE)
+			term.histf++;
 	}
 
 	if (term.scr > 0 && term.scr < HISTSIZE)
